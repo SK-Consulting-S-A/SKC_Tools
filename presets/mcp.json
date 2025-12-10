@@ -1,0 +1,49 @@
+{
+  "servers": [
+    {
+      "id": "playwright",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "env": {
+        "PLAYWRIGHT_BROWSER": "msedge"
+      }
+    },
+    {
+      "id": "context7",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "<CONTEXT7_API_KEY>"
+      }
+    },
+    {
+      "id": "MS Learn Docs",
+      "url": "https://learn.microsoft.com/api/mcp",
+      "headers": {}
+    },
+    {
+      "id": "github",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer <GITHUB_TOKEN>"
+      }
+    },
+    {
+      "id": "bc-intelligence",
+      "command": "npx",
+      "args": [
+        "bc-code-intelligence-mcp"
+      ]
+    },
+    {
+      "id": "mcp-pandoc",
+      "command": "uvx",
+      "args": [
+        "mcp-pandoc"
+      ]
+    }
+  ]
+}
+

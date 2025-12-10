@@ -1,0 +1,110 @@
+{
+  "settings": {
+    "CRS.FileNamePattern": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.FileNamePatternExtensions": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.OnSaveAlFileAction": "Rename",
+    "CRS.FileNamePatternPageCustomizations": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.ExtensionObjectNamePattern": null,
+    "CRS.RenameWithGit": false,
+    "CRS.DisableDefaultAlSnippets": true,
+    "al.enableCodeAnalysis": true,
+    "al.codeAnalyzers": [
+      "${CodeCop}",
+      "${UICop}",
+      "${analyzerFolder}BusinessCentral.LinterCop.dll"
+    ],
+    "al.areProfileLensesSupported": true,
+    "al.inlayhints.parameterNames.enabled": true,
+    "al.inlayhints.functionReturnTypes.enabled": true,
+    "alOutline.defaultDataClassification": "Customer Content",
+    "alCodeActions.extractToLabelCreatesComment": true,
+    "alOutline.addToolTipsToPageFields": true,
+    "alOutline.enableCodeCopFixes": true,
+    "alOutline.fixCodeCopMissingParenthesesOnSave": true,
+    "al.backgroundCodeAnalysis": true,
+    "al.compilationOptions": {
+      "parallel": true,
+      "generateReportLayout": true
+    },
+    "al.enableCodeActions": true,
+    "al.incrementalBuild": true,
+    "alOutline.codeActionsOnSave": [
+      "SortVariables",
+      "FormatDocument",
+      "SortCustomizations",
+      "SortProcedures",
+      "SortProperties",
+      "SortTableFields",
+      "SortPermissions",
+      "SortPermissionSetList"
+    ],
+    "alOutline.appAreaMode": "inheritFromMainObject",
+    "alOutline.codeCleanupActions": [
+      "AddApplicationAreas",
+      "AddDataClassifications",
+      "AddEnumValuesCaptions",
+      "AddMissingParentheses",
+      "AddObjectCaptions",
+      "AddPageFieldCaptions",
+      "AddTableFieldCaptions",
+      "AddToolTips",
+      "ConvertObjectIdsToNames",
+      "FixKeywordsCase",
+      "FixIdentifiersCase",
+      "FormatDocument",
+      "RemoveEmptyLines",
+      "TrimTrailingWhitespace"
+    ],
+    "alOutline.pageActionToolTip": "Executes the %1 action",
+    "alOutline.pageFieldToolTip": "Specifies the value of the %1 field",
+    "al.snapshotDebuggingPath": "./.snapshot",
+    "NAB.UseDTS": true,
+    "NAB.LoadSymbols": true,
+    "alCodeActions.findNewProcedureLocation": "Sort by type, access modifier, range",
+    "editor.inlineSuggest.enabled": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    },
+    "editor.language.brackets": [],
+    "git.autofetch": true,
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "git.openRepositoryInParentFolders": "always",
+    "settingsSync.ignoredSettings": [],
+    "settingsSync.ignoredExtensions": [],
+    "[al]": {
+      "editor.wordBasedSuggestions": "off",
+      "editor.suggestSelection": "first",
+      "editor.formatOnSave": true
+    },
+    "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "workbench.iconTheme": "vscode-icons",
+    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.startupEditor": "none",
+    "workbench.settings.applyToAllProfiles": [
+      "al.inlayhints.functionReturnTypes.enabled",
+      "al.inlayhints.parameterNames.enabled"
+    ],
+    "workbench.activityBar.orientation": "vertical",
+    "security.workspace.trust.untrustedFiles": "open",
+    "vsicons.dontShowNewVersionMessage": true,
+    "window.commandCenter": true,
+    "editor.experimentalGpuAcceleration": "on",
+    "editor.lightbulb.enabled": "onCode",
+    "terminal.integrated.gpuAcceleration": "on",
+    "terminal.integrated.enableImages": true,
+    "augment.nextEdit.highlightSuggestionsInTheEditor": true,
+    "augment.nextEdit.enableGlobalBackgroundSuggestions": true,
+    "cSpell.overrides": [],
+    "chat.tools.autoApprove": true,
+    "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+    "objectIdNinja.backEndUrl": "objectninja-backend.azurewebsites.net",
+    "objectIdNinja.backEndUrlPoll": "objectninja-pool.azurewebsites.net",
+    "github.copilot.enable": {
+      "*": false
+    }
+  }
+}

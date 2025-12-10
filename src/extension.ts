@@ -1,0 +1,500 @@
+import * as fs from "fs/promises";
+import * as path from "path";
+import {
+  commands,
+  ConfigurationTarget,
+  ExtensionContext,
+  OutputChannel,
+  Terminal,
+  extensions,
+  window,
+  workspace
+} from "vscode";
+
+const OUTPUT_CHANNEL_NAME = "SKC Presets";
+const STATE_KEY = "skc.presetsApplied";
+const STATE_VERSION_KEY = "skc.presetsVersion";
+
+export async function activate(context: ExtensionContext): Promise<void> {
+  const channel = window.createOutputChannel(OUTPUT_CHANNEL_NAME);
+  context.subscriptions.push(channel);
+
+  const currentVersion = (context.extension?.packageJSON?.version as string | undefined) ?? undefined;
+  const storedVersion = context.globalState.get<string>(STATE_VERSION_KEY);
+  const isNewVersion = Boolean(currentVersion && storedVersion !== currentVersion);
+
+  const applyCommand = commands.registerCommand("skc.applyPresets", async () => {
+    await applyPresets(context, channel, false);
+  });
+  context.subscriptions.push(applyCommand);
+
+  const configureAuthCommand = commands.registerCommand("skc.configureMcpAuth", async () => {
+    const saved = await promptAndSaveMcpSecrets(context);
+    const message = saved
+      ? "SKC MCP credentials saved."
+      : "No MCP credentials were saved.";
+    void window.showInformationMessage(message);
+  });
+  context.subscriptions.push(configureAuthCommand);
+
+  const alGoCommand = commands.registerCommand("skc.runAlGo", async () => {
+    await runAlGo(context, channel);
+  });
+  context.subscriptions.push(alGoCommand);
+
+  const autoApply = workspace.getConfiguration("skc").get<boolean>("applyOnStartup", true);
+  const alreadyApplied = context.globalState.get<boolean>(STATE_KEY, false);
+
+  if (autoApply && (!alreadyApplied || isNewVersion)) {
+    await applyPresets(context, channel, true);
+  }
+}
+
+async function applyPresets(
+  context: ExtensionContext,
+  channel: OutputChannel,
+  silent: boolean
+): Promise<void> {
+  const cfg = workspace.getConfiguration("skc");
+  const dryRun = cfg.get<boolean>("dryRun", false);
+  const skipInstalled = cfg.get<boolean>("skipInstalledExtensions", true);
+  const presetPath = cfg.get<string>("presetFilePath", "").trim();
+  const mcpPath = cfg.get<string>("mcpFilePath", "").trim();
+  const extensionsPath = cfg.get<string>("extensionsFilePath", "").trim();
+
+  channel.appendLine(`[SKC] Applying presets (dryRun=${dryRun})...`);
+
+  const { settings, extensions: presetExtensions } = await readPresetFile(presetPath, context, channel);
+  const mcpServersRaw = await readMcpFile(mcpPath, context, channel);
+  const mcpServers = await injectMcpSecrets(context, channel, mcpServersRaw, silent, dryRun);
+  const extraExtensions = await readExtensionsFile(extensionsPath, context, channel);
+
+  const settingsToApply = settings ? { ...settings } : {};
+  if (Array.isArray(mcpServers) && mcpServers.length > 0) {
+    settingsToApply["mcp.servers"] = mcpServers;
+  }
+  const extensionsToInstall = Array.from(
+    new Set([
+      ...(presetExtensions ?? []),
+      ...(extraExtensions ?? [])
+    ])
+  );
+
+  await ensureExtensions(channel, dryRun, skipInstalled, extensionsToInstall);
+  await applySettings(channel, dryRun, settingsToApply);
+
+  if (!dryRun) {
+    await context.globalState.update(STATE_KEY, true);
+    const currentVersion = (context.extension?.packageJSON?.version as string | undefined) ?? undefined;
+    if (currentVersion) {
+      await context.globalState.update(STATE_VERSION_KEY, currentVersion);
+    }
+  }
+
+  const message = dryRun
+    ? "SKC dry run complete. No changes were written."
+    : "SKC presets applied.";
+
+  if (!silent) {
+    void window.showInformationMessage(message);
+  }
+}
+
+async function applySettings(
+  channel: OutputChannel,
+  dryRun: boolean,
+  settings: Record<string, unknown>
+): Promise<void> {
+  const config = workspace.getConfiguration();
+
+  for (const [key, value] of Object.entries(settings)) {
+    const knownSetting = config.has(key);
+    if (!knownSetting) {
+      channel.appendLine(`[SKC] ${key} is not a registered setting; skipping.`);
+      continue;
+    }
+
+    const current = config.get(key);
+    const unchanged = JSON.stringify(current) === JSON.stringify(value);
+
+    if (unchanged) {
+      channel.appendLine(`[SKC] ${key} already set; skipping.`);
+      continue;
+    }
+
+    channel.appendLine(`[SKC] Updating ${key}.`);
+    if (!dryRun) {
+      await config.update(key, value, ConfigurationTarget.Global);
+    }
+  }
+}
+
+async function ensureExtensions(
+  channel: OutputChannel,
+  dryRun: boolean,
+  skipInstalled: boolean,
+  extensionsToInstall: string[]
+): Promise<void> {
+  for (const id of extensionsToInstall) {
+    const isInstalled = extensions.getExtension(id) !== undefined;
+
+    if (isInstalled && skipInstalled) {
+      channel.appendLine(`[SKC] ${id} already installed; skipping.`);
+      continue;
+    }
+
+    channel.appendLine(`[SKC] Installing ${id}...`);
+    if (!dryRun) {
+      await commands.executeCommand("workbench.extensions.installExtension", id);
+    }
+  }
+}
+
+export function deactivate(): void {
+  // Nothing to clean up.
+}
+
+type PresetFileShape = {
+  settings?: Record<string, unknown>;
+  extensions?: unknown;
+};
+
+type McpFileShape = {
+  servers?: unknown;
+};
+
+type ExtensionsFileShape = {
+  extensions?: unknown;
+};
+
+async function readPresetFile(
+  presetPath: string | undefined,
+  context: ExtensionContext,
+  channel: OutputChannel
+): Promise<{ settings?: Record<string, unknown>; extensions?: string[] }> {
+  if (!presetPath) {
+    return {};
+  }
+
+  const resolvedPath = await resolvePath(presetPath, context);
+  if (!resolvedPath) {
+    channel.appendLine(`[SKC] Unable to resolve preset path '${presetPath}'; no presets applied.`);
+    return {};
+  }
+
+  try {
+    const raw = await fs.readFile(resolvedPath, "utf8");
+    const parsed: PresetFileShape = JSON.parse(raw);
+
+    const settings =
+      parsed.settings && typeof parsed.settings === "object" && !Array.isArray(parsed.settings)
+        ? parsed.settings
+        : undefined;
+    const extensions =
+      Array.isArray(parsed.extensions) && parsed.extensions.every((e) => typeof e === "string")
+        ? (parsed.extensions as string[])
+        : undefined;
+
+    channel.appendLine(`[SKC] Loaded preset file from ${resolvedPath}.`);
+    return { settings, extensions };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    channel.appendLine(`[SKC] Failed to read preset file at ${resolvedPath}: ${message}`);
+    return {};
+  }
+}
+
+async function readMcpFile(
+  mcpPath: string | undefined,
+  context: ExtensionContext,
+  channel: OutputChannel
+): Promise<unknown[] | undefined> {
+  if (!mcpPath) {
+    return undefined;
+  }
+
+  const resolvedPath = await resolvePath(mcpPath, context);
+  if (!resolvedPath) {
+    channel.appendLine(`[SKC] Unable to resolve MCP path '${mcpPath}'; keeping existing mcp.servers.`);
+    return undefined;
+  }
+
+  try {
+    const raw = await fs.readFile(resolvedPath, "utf8");
+    const parsed: McpFileShape = JSON.parse(raw);
+    const servers =
+      parsed.servers && Array.isArray(parsed.servers)
+        ? parsed.servers
+        : Array.isArray(parsed as unknown)
+          ? (parsed as unknown[])
+          : undefined;
+
+    if (!servers) {
+      channel.appendLine(
+        `[SKC] MCP file at ${resolvedPath} did not contain a 'servers' array; leaving mcp.servers unchanged.`
+      );
+      return undefined;
+    }
+
+    channel.appendLine(`[SKC] Loaded MCP servers from ${resolvedPath}.`);
+    return servers;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    channel.appendLine(`[SKC] Failed to read MCP file at ${resolvedPath}: ${message}`);
+    return undefined;
+  }
+}
+
+async function readExtensionsFile(
+  extensionsPath: string | undefined,
+  context: ExtensionContext,
+  channel: OutputChannel
+): Promise<string[] | undefined> {
+  if (!extensionsPath) {
+    return undefined;
+  }
+
+  const resolvedPath = await resolvePath(extensionsPath, context);
+  if (!resolvedPath) {
+    channel.appendLine(`[SKC] Unable to resolve extensions path '${extensionsPath}'; no additional extensions applied.`);
+    return undefined;
+  }
+
+  try {
+    const raw = await fs.readFile(resolvedPath, "utf8");
+    const parsed: ExtensionsFileShape = JSON.parse(raw);
+    const ext =
+      parsed.extensions && Array.isArray(parsed.extensions)
+        ? parsed.extensions
+        : Array.isArray(parsed as unknown)
+          ? (parsed as string[])
+          : undefined;
+
+    const valid =
+      ext && ext.every((e) => typeof e === "string") ? (ext as string[]) : undefined;
+
+    if (!valid) {
+      channel.appendLine(
+        `[SKC] Extensions file at ${resolvedPath} did not contain a string array; ignoring.`
+      );
+      return undefined;
+    }
+
+    channel.appendLine(`[SKC] Loaded extensions from ${resolvedPath}.`);
+    return valid;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    channel.appendLine(`[SKC] Failed to read extensions file at ${resolvedPath}: ${message}`);
+    return undefined;
+  }
+}
+
+async function resolvePath(
+  configuredPath: string,
+  context: ExtensionContext
+): Promise<string | undefined> {
+  if (!configuredPath) {
+    return undefined;
+  }
+
+  if (path.isAbsolute(configuredPath)) {
+    return (await pathExists(configuredPath)) ? configuredPath : undefined;
+  }
+
+  const workspaceFolder = workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const candidates = [
+    ...(workspaceFolder ? [path.join(workspaceFolder, configuredPath)] : []),
+    path.join(context.extensionPath, configuredPath)
+  ];
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runAlGo(context: ExtensionContext, channel: OutputChannel): Promise<void> {
+  const cfg = workspace.getConfiguration("skc");
+  const commandText = cfg.get<string>("alGoCommand", "al-go").trim();
+  const runInTerminal = cfg.get<boolean>("alGoRunInTerminal", false);
+  const isCommandId = /^[\\w-]+\\.[\\w-]+$/.test(commandText);
+  const shouldUseTerminal = runInTerminal && !isCommandId;
+  if (!commandText) {
+    void window.showErrorMessage("SKC: GO! command is empty. Set 'skc.alGoCommand' first.");
+    return;
+  }
+
+  channel.appendLine(`[SKC] SKC: GO! config -> command='${commandText}', runInTerminal=${runInTerminal}, isCommandId=${isCommandId}, usingTerminal=${shouldUseTerminal}`);
+
+  if (shouldUseTerminal) {
+    const workspaceFolder = workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceFolder) {
+      void window.showErrorMessage("SKC: GO! requires an open workspace folder.");
+      return;
+    }
+
+    channel.appendLine(`[SKC] Running SKC: GO! in terminal -> ${commandText}`);
+    let terminal: Terminal | undefined = window.terminals.find((t) => t.name === "SKC: GO!");
+    if (!terminal) {
+      terminal = window.createTerminal({ name: "SKC: GO!", cwd: workspaceFolder });
+    }
+    terminal.show();
+    terminal.sendText(commandText);
+  } else {
+    channel.appendLine(`[SKC] Running SKC: GO! as VS Code command -> ${commandText}`);
+    try {
+      await commands.executeCommand(commandText);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      channel.appendLine(`[SKC] Failed to run SKC: GO! command '${commandText}': ${message}`);
+      void window.showErrorMessage(`SKC: GO! could not run command '${commandText}'. ${message}`);
+      return;
+    }
+  }
+
+  const initGitignoreCommand = "al-toolbox.initGitignore";
+  channel.appendLine(`[SKC] Executing ${initGitignoreCommand} command from AL Toolbox.`);
+  try {
+    await commands.executeCommand(initGitignoreCommand);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    channel.appendLine(`[SKC] Failed to run ${initGitignoreCommand}: ${message}`);
+    void window.showErrorMessage(`SKC: GO! could not run ${initGitignoreCommand}. ${message}`);
+  }
+}
+
+async function injectMcpSecrets(
+  context: ExtensionContext,
+  channel: OutputChannel,
+  servers: unknown[] | undefined,
+  silent: boolean,
+  dryRun: boolean
+): Promise<unknown[] | undefined> {
+  if (!servers || !Array.isArray(servers)) {
+    return servers;
+  }
+
+  const allowPrompt = !silent && !dryRun;
+  let githubToken: string | undefined;
+  let context7ApiKey: string | undefined;
+  const hydrated: unknown[] = [];
+
+  for (const server of servers) {
+    if (!isRecord(server) || typeof server.id !== "string") {
+      hydrated.push(server);
+      continue;
+    }
+
+    const copy: Record<string, unknown> = { ...server };
+    const headers = isRecord(copy.headers) ? { ...copy.headers } : {};
+
+    if (copy.id === "github") {
+      if (!githubToken) {
+        githubToken = await getOrPromptSecret(
+          context,
+          "skc.githubToken",
+          "Enter a GitHub MCP token (PAT or MCP token). Stored securely.",
+          allowPrompt
+        );
+      }
+      if (githubToken) {
+        headers.Authorization = githubToken.startsWith("Bearer ")
+          ? githubToken
+          : `Bearer ${githubToken}`;
+      } else {
+        channel.appendLine(
+          "[SKC] No GitHub token available; 'github' MCP server will be applied without Authorization."
+        );
+      }
+    }
+
+    if (copy.id === "context7") {
+      if (!context7ApiKey) {
+        context7ApiKey = await getOrPromptSecret(
+          context,
+          "skc.context7ApiKey",
+          "Enter the Context7 API key. Stored securely.",
+          allowPrompt
+        );
+      }
+      if (context7ApiKey) {
+        headers.CONTEXT7_API_KEY = context7ApiKey;
+      } else {
+        channel.appendLine(
+          "[SKC] No Context7 API key available; 'context7' MCP server will be applied without CONTEXT7_API_KEY."
+        );
+      }
+    }
+
+    if (Object.keys(headers).length > 0) {
+      copy.headers = headers;
+    }
+
+    hydrated.push(copy);
+  }
+
+  return hydrated;
+}
+
+async function getOrPromptSecret(
+  context: ExtensionContext,
+  key: string,
+  prompt: string,
+  allowPrompt: boolean
+): Promise<string | undefined> {
+  const existing = await context.secrets.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  if (!allowPrompt) {
+    return undefined;
+  }
+
+  const value = await window.showInputBox({
+    prompt,
+    ignoreFocusOut: true,
+    password: true
+  });
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  await context.secrets.store(key, trimmed);
+  return trimmed;
+}
+
+async function promptAndSaveMcpSecrets(context: ExtensionContext): Promise<boolean> {
+  const githubToken = await getOrPromptSecret(
+    context,
+    "skc.githubToken",
+    "Enter a GitHub MCP token (PAT or MCP token). Stored securely.",
+    true
+  );
+  const context7ApiKey = await getOrPromptSecret(
+    context,
+    "skc.context7ApiKey",
+    "Enter the Context7 API key. Stored securely.",
+    true
+  );
+
+  return Boolean(githubToken || context7ApiKey);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
