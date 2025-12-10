@@ -5,6 +5,7 @@ node_modules/
 *.vsix
 *.log
 temp/
+.publish-token
 
 
 # ALTB

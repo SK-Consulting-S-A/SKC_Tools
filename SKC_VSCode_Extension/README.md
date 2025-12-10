@@ -15,7 +15,6 @@ Applies a preset VS Code setup for SKC: user settings, MCP servers, and required
 ## Config knobs (Settings → skc.*)
 - `applyOnStartup` (default true): auto-run once.
 - `skipInstalledExtensions` (default true): skip already installed extensions.
-- `dryRun` (default false): log only, no writes.
 - `presetFilePath` (default `presets/settings.json`), `mcpFilePath` (default `presets/mcp.json`), `extensionsFilePath` (default `presets/extensions.json`); paths resolve from workspace or the bundled extension folder.
 
 ## Build & package

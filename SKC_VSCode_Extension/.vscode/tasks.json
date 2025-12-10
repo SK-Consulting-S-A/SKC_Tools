@@ -2,29 +2,67 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm: compile",
+      "label": "Publish Extension (Current Version)",
       "type": "npm",
-      "script": "compile",
+      "script": "publish",
       "group": {
         "kind": "build",
-        "isDefault": true
+        "isDefault": false
       },
-      "problemMatcher": "$tsc",
-      "detail": "tsc -p ./"
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
     },
     {
-      "label": "npm: watch",
+      "label": "Publish Extension (Patch: 0.0.3 → 0.0.4)",
       "type": "npm",
-      "script": "watch",
-      "isBackground": true,
-      "problemMatcher": "$tsc-watch",
-      "detail": "tsc -watch -p ./"
+      "script": "publish:patch",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
     },
     {
-      "label": "npm: package",
+      "label": "Publish Extension (Minor: 0.0.3 → 0.1.0)",
       "type": "npm",
-      "script": "package",
-      "group": "build",
+      "script": "publish:minor",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Publish Extension (Major: 0.0.3 → 1.0.0)",
+      "type": "npm",
+      "script": "publish:major",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true,
+        "clear": true
+      },
       "problemMatcher": []
     }
   ]

@@ -56,22 +56,26 @@ async function applyPresets(
   silent: boolean
 ): Promise<void> {
   const cfg = workspace.getConfiguration("skc");
-  const dryRun = cfg.get<boolean>("dryRun", false);
   const skipInstalled = cfg.get<boolean>("skipInstalledExtensions", true);
   const presetPath = cfg.get<string>("presetFilePath", "").trim();
   const mcpPath = cfg.get<string>("mcpFilePath", "").trim();
   const extensionsPath = cfg.get<string>("extensionsFilePath", "").trim();
 
-  channel.appendLine(`[SKC] Applying presets (dryRun=${dryRun})...`);
+  channel.appendLine(`[SKC] Applying presets...`);
+  channel.appendLine(`[SKC] Preset path: ${presetPath || "(empty)"}`);
+  channel.appendLine(`[SKC] MCP path: ${mcpPath || "(empty)"}`);
+  channel.appendLine(`[SKC] Extensions path: ${extensionsPath || "(empty)"}`);
 
   const { settings, extensions: presetExtensions } = await readPresetFile(presetPath, context, channel);
   const mcpServersRaw = await readMcpFile(mcpPath, context, channel);
-  const mcpServers = await injectMcpSecrets(context, channel, mcpServersRaw, silent, dryRun);
+  const mcpServers = await injectMcpSecrets(context, channel, mcpServersRaw, silent);
   const extraExtensions = await readExtensionsFile(extensionsPath, context, channel);
 
   const settingsToApply = settings ? { ...settings } : {};
+  channel.appendLine(`[SKC] Loaded ${Object.keys(settingsToApply).length} settings from preset file.`);
   if (Array.isArray(mcpServers) && mcpServers.length > 0) {
     settingsToApply["mcp.servers"] = mcpServers;
+    channel.appendLine(`[SKC] Added ${mcpServers.length} MCP server(s) to settings.`);
   }
   const extensionsToInstall = Array.from(
     new Set([
@@ -80,58 +84,99 @@ async function applyPresets(
     ])
   );
 
-  await ensureExtensions(channel, dryRun, skipInstalled, extensionsToInstall);
-  await applySettings(channel, dryRun, settingsToApply);
+  await ensureExtensions(channel, skipInstalled, extensionsToInstall);
+  await applySettings(channel, settingsToApply);
 
-  if (!dryRun) {
-    await context.globalState.update(STATE_KEY, true);
-    const currentVersion = (context.extension?.packageJSON?.version as string | undefined) ?? undefined;
-    if (currentVersion) {
-      await context.globalState.update(STATE_VERSION_KEY, currentVersion);
-    }
+  await context.globalState.update(STATE_KEY, true);
+  const currentVersion = (context.extension?.packageJSON?.version as string | undefined) ?? undefined;
+  if (currentVersion) {
+    await context.globalState.update(STATE_VERSION_KEY, currentVersion);
   }
 
-  const message = dryRun
-    ? "SKC dry run complete. No changes were written."
-    : "SKC presets applied.";
-
   if (!silent) {
-    void window.showInformationMessage(message);
+    void window.showInformationMessage("SKC presets applied.");
   }
 }
 
 async function applySettings(
   channel: OutputChannel,
-  dryRun: boolean,
   settings: Record<string, unknown>
 ): Promise<void> {
   const config = workspace.getConfiguration();
 
+  const settingsCount = Object.keys(settings).length;
+  channel.appendLine(`[SKC] Applying ${settingsCount} settings...`);
+
+  if (settingsCount === 0) {
+    channel.appendLine(`[SKC] WARNING: No settings to apply! Check if preset file was loaded correctly.`);
+    return;
+  }
+
+  let updatedCount = 0;
+  let skippedCount = 0;
+  let errorCount = 0;
+
   for (const [key, value] of Object.entries(settings)) {
-    const knownSetting = config.has(key);
+    // Try to get current value - if it exists, the setting is known
+    const current = config.get(key, undefined);
+    const knownSetting = current !== undefined || config.has(key);
+
     if (!knownSetting) {
-      channel.appendLine(`[SKC] ${key} is not a registered setting; skipping.`);
-      continue;
+      channel.appendLine(`[SKC] ${key} is not recognized by VS Code; attempting to set anyway...`);
     }
 
-    const current = config.get(key);
     const unchanged = JSON.stringify(current) === JSON.stringify(value);
 
     if (unchanged) {
-      channel.appendLine(`[SKC] ${key} already set; skipping.`);
+      channel.appendLine(`[SKC] ${key} already set to target value; skipping.`);
+      skippedCount++;
       continue;
     }
 
-    channel.appendLine(`[SKC] Updating ${key}.`);
-    if (!dryRun) {
+    channel.appendLine(`[SKC] Updating ${key} from ${JSON.stringify(current)} to ${JSON.stringify(value)}.`);
+    try {
       await config.update(key, value, ConfigurationTarget.Global);
+      
+      // Verify the setting was actually written
+      const verifyValue = config.get(key, undefined);
+      const matches = JSON.stringify(verifyValue) === JSON.stringify(value);
+      
+      if (matches) {
+        channel.appendLine(`[SKC] Successfully updated ${key}.`);
+        updatedCount++;
+      } else {
+        channel.appendLine(`[SKC] WARNING: ${key} was updated but verification failed. Expected: ${JSON.stringify(value)}, Got: ${JSON.stringify(verifyValue)}`);
+        errorCount++;
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      channel.appendLine(`[SKC] ERROR: Failed to update ${key}: ${message}`);
+      errorCount++;
     }
+  }
+
+  channel.appendLine(`[SKC] Settings summary: ${updatedCount} updated, ${skippedCount} skipped, ${errorCount} errors.`);
+  
+  // Final verification - verify a few sample settings were actually written
+  if (updatedCount > 0) {
+    channel.appendLine(`[SKC] Verifying settings were written to settings.json...`);
+    const sampleKeys = Object.keys(settings).slice(0, 3); // Check first 3 settings
+    for (const key of sampleKeys) {
+      const finalValue = config.get(key, undefined);
+      const expectedValue = settings[key];
+      const matches = JSON.stringify(finalValue) === JSON.stringify(expectedValue);
+      if (matches) {
+        channel.appendLine(`[SKC] ✓ Verified: ${key} is set correctly`);
+      } else {
+        channel.appendLine(`[SKC] ✗ Warning: ${key} verification failed. Expected: ${JSON.stringify(expectedValue)}, Got: ${JSON.stringify(finalValue)}`);
+      }
+    }
+    channel.appendLine(`[SKC] Note: Settings file location: %APPDATA%\\Code\\User\\settings.json (Windows)`);
   }
 }
 
 async function ensureExtensions(
   channel: OutputChannel,
-  dryRun: boolean,
   skipInstalled: boolean,
   extensionsToInstall: string[]
 ): Promise<void> {
@@ -144,9 +189,7 @@ async function ensureExtensions(
     }
 
     channel.appendLine(`[SKC] Installing ${id}...`);
-    if (!dryRun) {
-      await commands.executeCommand("workbench.extensions.installExtension", id);
-    }
+    await commands.executeCommand("workbench.extensions.installExtension", id);
   }
 }
 
@@ -379,14 +422,13 @@ async function injectMcpSecrets(
   context: ExtensionContext,
   channel: OutputChannel,
   servers: unknown[] | undefined,
-  silent: boolean,
-  dryRun: boolean
+  silent: boolean
 ): Promise<unknown[] | undefined> {
   if (!servers || !Array.isArray(servers)) {
     return servers;
   }
 
-  const allowPrompt = !silent && !dryRun;
+  const allowPrompt = !silent;
   let githubToken: string | undefined;
   let context7ApiKey: string | undefined;
   const hydrated: unknown[] = [];

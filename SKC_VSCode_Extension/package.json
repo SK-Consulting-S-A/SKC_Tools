@@ -2,7 +2,7 @@
   "name": "skc-extension-app",
   "displayName": "SKC Extension App",
   "description": "Applies the SKC preset: user settings (incl. MCP servers) and required extensions.",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "publisher": "skc",
   "repository": {
     "type": "git",
@@ -49,11 +49,6 @@
           "type": "boolean",
           "default": true,
           "description": "Skip reinstalling extensions that are already present."
-        },
-        "skc.dryRun": {
-          "type": "boolean",
-          "default": false,
-          "description": "Log what would be changed without touching user settings."
         },
         "skc.presetFilePath": {
           "type": "string",
@@ -133,17 +128,22 @@
     "vscode:prepublish": "npm run sync:extensions && tsc -p ./",
     "sync:extensions": "node scripts/sync-extensions.js",
     "compile": "npm run sync:extensions && tsc -p ./",
-    "package": "npm run sync:extensions && tsc -p ./ && npx vsce package",
+    "package": "npm run sync:extensions && tsc -p ./ && vsce package",
+    "publish": "npm run compile && node scripts/publish.js",
+    "publish:patch": "npm run compile && node scripts/publish.js patch",
+    "publish:minor": "npm run compile && node scripts/publish.js minor",
+    "publish:major": "npm run compile && node scripts/publish.js major",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test": "npm run compile"
   },
   "devDependencies": {
+    "@types/node": "^20.11.30",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "@vscode/vsce": "^2.32.0",
     "eslint": "^8.57.0",
-    "@types/node": "^20.11.30",
     "typescript": "^5.3.3"
   }
 }
