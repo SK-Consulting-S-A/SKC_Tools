@@ -13,6 +13,7 @@
   "bugs": {
     "url": "https://github.com/SK-Consulting-S-A/SKC_Tools/issues"
   },
+  "_comment": "Note: Extension visibility (public/private) is managed via VS Code Marketplace web UI. Extensions are private by default. To change visibility, visit: https://marketplace.visualstudio.com/manage/publishers/SKConsultingSA/extensions/skc-vs-tools/hub",
   "engines": {
     "vscode": "^1.90.0"
   },
