@@ -1,12 +1,17 @@
 {
-  "name": "skc-extension-app",
-  "displayName": "SKC Extension App",
+  "name": "skc-vs-tools",
+  "displayName": "SKC VS Tools",
   "description": "Applies the SKC preset: user settings (incl. MCP servers) and required extensions.",
-  "version": "0.1.0",
-  "publisher": "skc",
+  "version": "1.0.0",
+  "publisher": "SKConsultingSA",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skc/skc-vscode-extension"
+    "url": "https://github.com/SK-Consulting-S-A/SKC_Tools"
+  },
+  "homepage": "https://www.skc.lu",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/SK-Consulting-S-A/SKC_Tools/issues"
   },
   "engines": {
     "vscode": "^1.90.0"
@@ -133,6 +138,7 @@
     "publish:patch": "npm run compile && node scripts/publish.js patch",
     "publish:minor": "npm run compile && node scripts/publish.js minor",
     "publish:major": "npm run compile && node scripts/publish.js major",
+    "publish:prerelease": "npm run compile && node scripts/publish.js --pre-release",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test": "npm run compile"

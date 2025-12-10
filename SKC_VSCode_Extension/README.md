@@ -1,4 +1,4 @@
-# SKC Extension App
+# SKC VS Tools
 
 Applies a preset VS Code setup for SKC: user settings, MCP servers, and required extensions.
 

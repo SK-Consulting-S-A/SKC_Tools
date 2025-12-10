@@ -122,7 +122,9 @@ async function applySettings(
     const knownSetting = current !== undefined || config.has(key);
 
     if (!knownSetting) {
-      channel.appendLine(`[SKC] ${key} is not recognized by VS Code; attempting to set anyway...`);
+      channel.appendLine(`[SKC] ${key} is not recognized by VS Code; skipping.`);
+      skippedCount++;
+      continue;
     }
 
     const unchanged = JSON.stringify(current) === JSON.stringify(value);
