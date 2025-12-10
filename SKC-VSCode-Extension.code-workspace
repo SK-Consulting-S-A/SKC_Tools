@@ -1,0 +1,101 @@
+{
+    "folders": [
+        {
+            "name": "SKC VSCode Extension",
+            "path": "SKC_VSCode_Extension"
+        }
+    ],
+    "settings": {
+        "files.exclude": {
+            "**/node_modules": true,
+            "**/out": false
+        },
+        "search.exclude": {
+            "**/node_modules": true,
+            "**/out": true,
+            "**/*.vsix": true
+        },
+        "files.watcherExclude": {
+            "**/node_modules/**": true,
+            "**/out/**": true
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "explicit"
+        },
+        "[typescript]": {
+            "editor.defaultFormatter": "vscode.typescript-language-features",
+            "editor.formatOnSave": true
+        },
+        "[json]": {
+            "editor.defaultFormatter": "vscode.json-language-features"
+        },
+        "[al]": {
+            "editor.defaultFormatter": "ms-dynamics-smb.al",
+            "editor.formatOnSave": true
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-vscode.vscode-typescript-next",
+            "dbaeumer.vscode-eslint",
+            "ms-dynamics-smb.al"
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "npm: compile",
+                "type": "npm",
+                "script": "compile",
+                "group": {
+                    "kind": "build",
+                    "isDefault": true
+                },
+                "problemMatcher": "$tsc",
+                "options": {
+                    "cwd": "${workspaceFolder}"
+                }
+            },
+            {
+                "label": "npm: watch",
+                "type": "npm",
+                "script": "watch",
+                "group": "build",
+                "problemMatcher": "$tsc-watch",
+                "isBackground": true,
+                "options": {
+                    "cwd": "${workspaceFolder}"
+                }
+            },
+            {
+                "label": "npm: package",
+                "type": "npm",
+                "script": "package",
+                "group": "build",
+                "options": {
+                    "cwd": "${workspaceFolder}"
+                }
+            }
+        ]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Run Extension",
+                "type": "extensionHost",
+                "request": "launch",
+                "runtimeExecutable": "${execPath}",
+                "args": [
+                    "--extensionDevelopmentPath=${workspaceFolder}"
+                ],
+                "outFiles": [
+                    "${workspaceFolder}/out/**/*.js"
+                ]
+            }
+        ]
+    }
+}
