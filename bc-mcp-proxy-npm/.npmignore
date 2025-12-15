@@ -1,0 +1,21 @@
+# Source code directory (will be downloaded during postinstall)
+src/
+
+# Development files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Build artifacts that shouldn't be in package
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Config files
+appsettings.json
+appsettings.*.json
+

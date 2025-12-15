@@ -108,7 +108,7 @@ command += ` --pat ${token}`;
         console.log('   To share or make public, visit the management page:');
         console.log(`   ${manageUrl}`);
         console.log('   Reference: https://code.visualstudio.com/api/working-with-extensions/publishing-extension');
-        
+
         // Attempt to verify/ensure privacy setting (may not be supported by API)
         try {
             await setExtensionPrivate(publisher, extensionName, token);
@@ -169,7 +169,7 @@ command += ` --pat ${token}`;
  * https://marketplace.visualstudio.com/manage/publishers
  */
 function setExtensionPrivate(publisherId, extensionId, pat) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const auth = Buffer.from(`:${pat}`).toString('base64');
 
         // Get current extension details first
@@ -197,13 +197,13 @@ function setExtensionPrivate(publisherId, extensionId, pat) {
                     }
 
                     const extension = JSON.parse(data);
-                    
+
                     // Check current flags
                     const currentFlags = extension.flags || '';
-                    const isAlreadyPrivate = currentFlags === 'Private' || 
-                                           (typeof currentFlags === 'string' && currentFlags.includes('Private')) ||
-                                           (typeof currentFlags === 'number' && (currentFlags & 1) === 1); // Bit 0 = Private
-                    
+                    const isAlreadyPrivate = currentFlags === 'Private' ||
+                        (typeof currentFlags === 'string' && currentFlags.includes('Private')) ||
+                        (typeof currentFlags === 'number' && (currentFlags & 1) === 1); // Bit 0 = Private
+
                     if (isAlreadyPrivate) {
                         console.log('✅ Extension is already set to private.');
                         resolve();

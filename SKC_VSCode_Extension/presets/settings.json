@@ -103,7 +103,10 @@
     "objectIdNinja.backEndUrl": "objectninja-backend.azurewebsites.net",
     "objectIdNinja.backEndUrlPoll": "objectninja-pool.azurewebsites.net",
     "github.copilot.enable": {
-      "*": false
+      "*": false,
+      "cursor.privacy.mode": "strict",
+      "cursor.telemetry": false,
+      "cursor.aiProxy": "none" // or your self-hosted proxy
     }
   }
 }
