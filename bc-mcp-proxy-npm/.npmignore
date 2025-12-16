@@ -1,5 +1,14 @@
 # Source code directory (will be downloaded during postinstall)
-src/
+# But keep the built binaries
+src/BcMCPProxy/bin/Debug/
+src/BcMCPProxy/obj/
+src/BcMCPProxy/*.cs
+src/BcMCPProxy/*.csproj
+src/BcMCPProxy/*.sln
+src/BcMCPProxy/Auth/
+src/BcMCPProxy/Models/
+src/BcMCPProxy/Runtime/
+src/BcMCPProxy/Logging/
 
 # Development files
 .git/

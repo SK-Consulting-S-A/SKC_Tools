@@ -3,7 +3,11 @@
         {
             "name": "SKC VSCode Extension",
             "path": "SKC_VSCode_Extension"
-        }
+        },
+        {
+            "name": "bc-mcp-proxy-npm",
+            "path": "bc-mcp-proxy-npm"
+        },
     ],
     "settings": {
         "files.exclude": {
@@ -34,7 +38,8 @@
         "[al]": {
             "editor.defaultFormatter": "ms-dynamics-smb.al",
             "editor.formatOnSave": true
-        }
+        },
+        "powershell.cwd": "bc-mcp-proxy-npm"
     },
     "extensions": {
         "recommendations": [

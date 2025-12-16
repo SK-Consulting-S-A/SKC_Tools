@@ -92,19 +92,23 @@ bc-mcp-proxy --TenantId <tenant-id> --ClientId <client-id> --Environment <env> -
 
 ```json
 {
-  "mcp": {
-    "servers": {
-      "bc-proxy": {
-        "command": "npx",
-        "args": [
-          "-y",
-          "bc-mcp-proxy-fisqal",
-          "--TenantId", "your-tenant-id",
-          "--ClientId", "your-client-id",
-          "--Environment", "Production",
-          "--Company", "Your Company Name"
-        ]
-      }
+  "mcpServers": {
+    "bc-proxy": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "bc-mcp-proxy-fisqal@latest",
+        "--TenantId",
+        "your-tenant-id-here",
+        "--ClientId",
+        "your-client-id-here",
+        "--Environment",
+        "Production",
+        "--Company",
+        "Your Company Name",
+        "--ConfigurationName",
+        "Op"
+      ]
     }
   }
 }
