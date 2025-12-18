@@ -102,6 +102,7 @@
     "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
     "objectIdNinja.backEndUrl": "objectninja-backend.azurewebsites.net",
     "objectIdNinja.backEndUrlPoll": "objectninja-pool.azurewebsites.net",
+    "al.showHomeAtStartup": "Always",
     "github.copilot.enable": {
       "*": false,
       "cursor.privacy.mode": "strict",

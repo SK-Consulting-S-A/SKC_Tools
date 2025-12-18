@@ -1,0 +1,83 @@
+# 📰 SKC VS Tools - What's New
+
+## Version 1.0.2 - Latest Release
+
+Welcome to **SKC VS Tools**! Your all-in-one extension for streamlined Business Central AL development.
+
+---
+
+## ✨ What's New in This Version
+
+### 🚀 Core Features
+- **Automatic Preset Application** - All settings, extensions, and MCP servers are automatically configured on startup
+- **Smart News System** - Stay informed with automatic news notifications on every VS Code launch
+- **MCP Server Integration** - Seamless integration with GitHub and Context7 MCP servers for enhanced development capabilities
+- **Secure Credential Management** - GitHub tokens and API keys are stored securely using VS Code's secret storage
+
+### 🎯 Developer Experience
+- **Zero Configuration Required** - Works out of the box with sensible defaults
+- **Settings Verification** - Automatic verification ensures all settings are applied correctly
+
+### 📦 Extension Pack
+Includes essential AL development extensions:
+- Microsoft AL Language
+- Waldo's AL Extension Pack
+- Error Lens
+- GitHub Pull Requests
+- AL Toolbox
+- And many more...
+
+---
+
+## 🔧 Configuration
+
+### Commands
+- **SKC: Apply Presets** - Manually apply all presets
+- **SKC: Configure MCP Auth** - Set up GitHub and Context7 credentials
+
+### 🔐 Setting Up MCP Authentication
+
+#### GitHub MCP Token
+1. **Generate a GitHub Token**:
+   - Visit [GitHub Personal Access Tokens](https://github.com/settings/tokens)
+   - Click "Generate new token" → "Generate new token (classic)"
+   - Give it a descriptive name (e.g., "SKC VS Tools MCP")
+   - Select required scopes:
+     - `repo` (Full control of private repositories)
+     - `read:org` (Read org and team membership)
+     - `user` (Read user profile data)
+   - Click "Generate token" and **copy the token immediately**
+
+2. **Configure in SKC VS Tools**:
+   - Open Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
+   - Run: `SKC: Configure MCP Auth`
+   - Paste your GitHub token when prompted
+   - Token is stored securely in VS Code's secret storage
+
+#### Context7 API Key
+1. **Get Your Context7 API Key**:
+   - Visit [Context7 Dashboard](https://context7.com/dashboard)
+   - Sign in to your account
+   - Navigate to API Settings or API Keys section
+   - Copy your API key
+
+2. **Configure in SKC VS Tools**:
+   - Open Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`)
+   - Run: `SKC: Configure MCP Auth`
+   - Enter your Context7 API key when prompted
+   - Key is stored securely in VS Code's secret storage
+
+> 💡 **Note**: You only need to configure these once. The extension will automatically inject them into your MCP server configurations on startup.
+
+---
+
+## 🆘 Support & Resources
+
+- **Website**: [skc.lu](https://www.skc.lu)
+- **GitHub**: [SK-Consulting-S-A/SKC_Tools](https://github.com/SK-Consulting-S-A/SKC_Tools)
+- **Issues**: Report bugs or request features on GitHub
+
+---
+
+**Thank you for using SKC VS Tools!** 🎉  
+*Making Business Central development easier, one preset at a time.*

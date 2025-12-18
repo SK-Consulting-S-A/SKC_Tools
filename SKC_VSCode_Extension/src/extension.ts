@@ -5,15 +5,16 @@ import {
   ConfigurationTarget,
   ExtensionContext,
   OutputChannel,
-  Terminal,
   extensions,
   window,
-  workspace
+  workspace,
+  Uri
 } from "vscode";
 
 const OUTPUT_CHANNEL_NAME = "SKC Presets";
 const STATE_KEY = "skc.presetsApplied";
 const STATE_VERSION_KEY = "skc.presetsVersion";
+const STATE_NEWS_SHOWN_KEY = "skc.newsShownForVersion";
 
 export async function activate(context: ExtensionContext): Promise<void> {
   const channel = window.createOutputChannel(OUTPUT_CHANNEL_NAME);
@@ -37,17 +38,16 @@ export async function activate(context: ExtensionContext): Promise<void> {
   });
   context.subscriptions.push(configureAuthCommand);
 
-  const alGoCommand = commands.registerCommand("skc.runAlGo", async () => {
-    await runAlGo(context, channel);
-  });
-  context.subscriptions.push(alGoCommand);
-
-  const autoApply = workspace.getConfiguration("skc").get<boolean>("applyOnStartup", true);
+  // Always apply presets on startup (forced to true)
+  const autoApply = true;
   const alreadyApplied = context.globalState.get<boolean>(STATE_KEY, false);
 
   if (autoApply && (!alreadyApplied || isNewVersion)) {
     await applyPresets(context, channel, true);
   }
+
+  // Show news notification on startup (especially for new versions)
+  await showNewsIfNeeded(context, channel, currentVersion, isNewVersion);
 }
 
 async function applyPresets(
@@ -138,11 +138,11 @@ async function applySettings(
     channel.appendLine(`[SKC] Updating ${key} from ${JSON.stringify(current)} to ${JSON.stringify(value)}.`);
     try {
       await config.update(key, value, ConfigurationTarget.Global);
-      
+
       // Verify the setting was actually written
       const verifyValue = config.get(key, undefined);
       const matches = JSON.stringify(verifyValue) === JSON.stringify(value);
-      
+
       if (matches) {
         channel.appendLine(`[SKC] Successfully updated ${key}.`);
         updatedCount++;
@@ -158,7 +158,7 @@ async function applySettings(
   }
 
   channel.appendLine(`[SKC] Settings summary: ${updatedCount} updated, ${skippedCount} skipped, ${errorCount} errors.`);
-  
+
   // Final verification - verify a few sample settings were actually written
   if (updatedCount > 0) {
     channel.appendLine(`[SKC] Verifying settings were written to settings.json...`);
@@ -370,56 +370,6 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-async function runAlGo(context: ExtensionContext, channel: OutputChannel): Promise<void> {
-  const cfg = workspace.getConfiguration("skc");
-  const commandText = cfg.get<string>("alGoCommand", "al-go").trim();
-  const runInTerminal = cfg.get<boolean>("alGoRunInTerminal", false);
-  const isCommandId = /^[\\w-]+\\.[\\w-]+$/.test(commandText);
-  const shouldUseTerminal = runInTerminal && !isCommandId;
-  if (!commandText) {
-    void window.showErrorMessage("SKC: GO! command is empty. Set 'skc.alGoCommand' first.");
-    return;
-  }
-
-  channel.appendLine(`[SKC] SKC: GO! config -> command='${commandText}', runInTerminal=${runInTerminal}, isCommandId=${isCommandId}, usingTerminal=${shouldUseTerminal}`);
-
-  if (shouldUseTerminal) {
-    const workspaceFolder = workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceFolder) {
-      void window.showErrorMessage("SKC: GO! requires an open workspace folder.");
-      return;
-    }
-
-    channel.appendLine(`[SKC] Running SKC: GO! in terminal -> ${commandText}`);
-    let terminal: Terminal | undefined = window.terminals.find((t) => t.name === "SKC: GO!");
-    if (!terminal) {
-      terminal = window.createTerminal({ name: "SKC: GO!", cwd: workspaceFolder });
-    }
-    terminal.show();
-    terminal.sendText(commandText);
-  } else {
-    channel.appendLine(`[SKC] Running SKC: GO! as VS Code command -> ${commandText}`);
-    try {
-      await commands.executeCommand(commandText);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      channel.appendLine(`[SKC] Failed to run SKC: GO! command '${commandText}': ${message}`);
-      void window.showErrorMessage(`SKC: GO! could not run command '${commandText}'. ${message}`);
-      return;
-    }
-  }
-
-  const initGitignoreCommand = "al-toolbox.initGitignore";
-  channel.appendLine(`[SKC] Executing ${initGitignoreCommand} command from AL Toolbox.`);
-  try {
-    await commands.executeCommand(initGitignoreCommand);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    channel.appendLine(`[SKC] Failed to run ${initGitignoreCommand}: ${message}`);
-    void window.showErrorMessage(`SKC: GO! could not run ${initGitignoreCommand}. ${message}`);
-  }
-}
-
 async function injectMcpSecrets(
   context: ExtensionContext,
   channel: OutputChannel,
@@ -542,3 +492,68 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
+async function showNewsIfNeeded(
+  context: ExtensionContext,
+  channel: OutputChannel,
+  currentVersion: string | undefined,
+  isNewVersion: boolean
+): Promise<void> {
+  const cfg = workspace.getConfiguration("skc");
+  const showNews = cfg.get<boolean>("showNewsOnStartup", true);
+  const newsFilePath = cfg.get<string>("newsFilePath", "").trim();
+
+  if (!showNews) {
+    return;
+  }
+
+  // Check if news was already shown for this version
+  const newsShownForVersion = context.globalState.get<string>(STATE_NEWS_SHOWN_KEY);
+  const shouldShowNews = isNewVersion || newsShownForVersion !== currentVersion;
+
+  if (!shouldShowNews) {
+    channel.appendLine(`[SKC] News already shown for version ${currentVersion}.`);
+    return;
+  }
+
+  // Try to find and show the news file
+  const resolvedNewsPath = await resolvePath(newsFilePath || "presets/NEWS.md", context);
+
+  if (!resolvedNewsPath) {
+    channel.appendLine(`[SKC] News file not found at '${newsFilePath || "presets/NEWS.md"}'; skipping news notification.`);
+    return;
+  }
+
+  try {
+    // Read the news file to check if it has content
+    const newsContent = await fs.readFile(resolvedNewsPath, "utf8");
+
+    if (!newsContent.trim()) {
+      channel.appendLine(`[SKC] News file is empty; skipping notification.`);
+      return;
+    }
+
+    channel.appendLine(`[SKC] Showing news from ${resolvedNewsPath}`);
+
+    // Show notification with options
+    const action = await window.showInformationMessage(
+      `📰 SKC Tools ${currentVersion ? `v${currentVersion}` : ""} - What's New?`,
+      "View News",
+      "Dismiss"
+    );
+
+    if (action === "View News") {
+      // Open the markdown file in preview mode
+      const newsUri = Uri.file(resolvedNewsPath);
+      await commands.executeCommand("markdown.showPreview", newsUri);
+      channel.appendLine(`[SKC] Opened news file in preview mode.`);
+    }
+
+    // Mark news as shown for this version
+    if (currentVersion) {
+      await context.globalState.update(STATE_NEWS_SHOWN_KEY, currentVersion);
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    channel.appendLine(`[SKC] Failed to show news: ${message}`);
+  }
+}
