@@ -500,6 +500,7 @@ async function showNewsIfNeeded(
 ): Promise<void> {
   const cfg = workspace.getConfiguration("skc");
   const showNews = cfg.get<boolean>("showNewsOnStartup", true);
+  const autoOpenNews = cfg.get<boolean>("autoOpenNewsPage", false);
   const newsFilePath = cfg.get<string>("newsFilePath", "").trim();
 
   if (!showNews) {
@@ -533,6 +534,18 @@ async function showNewsIfNeeded(
     }
 
     channel.appendLine(`[SKC] Showing news from ${resolvedNewsPath}`);
+    const newsUri = Uri.file(resolvedNewsPath);
+
+    // Auto-open news page if configured
+    if (autoOpenNews) {
+      await commands.executeCommand("markdown.showPreview", newsUri);
+      channel.appendLine(`[SKC] Auto-opened news file in full preview mode.`);
+      // Mark as shown
+      if (currentVersion) {
+        await context.globalState.update(STATE_NEWS_SHOWN_KEY, currentVersion);
+      }
+      return;
+    }
 
     // Show notification with options
     const action = await window.showInformationMessage(
@@ -543,7 +556,6 @@ async function showNewsIfNeeded(
 
     if (action === "View News") {
       // Open the markdown file in preview mode
-      const newsUri = Uri.file(resolvedNewsPath);
       await commands.executeCommand("markdown.showPreview", newsUri);
       channel.appendLine(`[SKC] Opened news file in preview mode.`);
     }

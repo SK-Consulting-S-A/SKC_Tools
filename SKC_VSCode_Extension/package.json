@@ -2,7 +2,7 @@
   "name": "skc-vs-tools",
   "displayName": "SKC VS Tools",
   "description": "Applies the SKC preset: user settings (incl. MCP servers) and required extensions.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "SKConsultingSA",
   "repository": {
     "type": "git",
@@ -65,6 +65,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show news notification on VS Code startup, especially when a new version is detected."
+        },
+        "skc.autoOpenNewsPage": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically open the news page in full view on startup instead of showing a notification. Requires 'showNewsOnStartup' to be enabled."
         },
         "skc.newsFilePath": {
           "type": "string",
