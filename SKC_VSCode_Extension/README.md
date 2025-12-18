@@ -17,6 +17,11 @@ Applies a preset VS Code setup for SKC: user settings, MCP servers, and required
 - `skipInstalledExtensions` (default true): skip already installed extensions.
 - `presetFilePath` (default `presets/settings.json`), `mcpFilePath` (default `presets/mcp.json`), `extensionsFilePath` (default `presets/extensions.json`); paths resolve from workspace or the bundled extension folder.
 
+## Use Cursor global MCP config (single source of truth)
+If you already manage MCP servers in Cursor’s global file (`%USERPROFILE%\.cursor\mcp.json`), you can reuse it in VS Code:
+1) Set `skc.mcpFilePath` to `cursor-global`.
+2) Run “SKC: Apply Presets” (or reload VS Code) to apply the servers to `mcp.servers`.
+
 ## Build & package
 - Install deps: `npm install`
 - Build: `npm run compile`

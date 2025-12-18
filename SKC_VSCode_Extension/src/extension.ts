@@ -1,4 +1,5 @@
 import * as fs from "fs/promises";
+import * as os from "os";
 import * as path from "path";
 import {
   commands,
@@ -206,6 +207,7 @@ type PresetFileShape = {
 
 type McpFileShape = {
   servers?: unknown;
+  mcpServers?: unknown;
 };
 
 type ExtensionsFileShape = {
@@ -266,17 +268,20 @@ async function readMcpFile(
 
   try {
     const raw = await fs.readFile(resolvedPath, "utf8");
-    const parsed: McpFileShape = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
+
     const servers =
-      parsed.servers && Array.isArray(parsed.servers)
-        ? parsed.servers
-        : Array.isArray(parsed as unknown)
-          ? (parsed as unknown[])
-          : undefined;
+      isRecord(parsed) && Array.isArray(parsed.servers)
+        ? (parsed.servers as unknown[])
+        : Array.isArray(parsed)
+          ? parsed
+          : isRecord(parsed) && isRecord(parsed.mcpServers)
+            ? convertCursorMcpServersToArray(parsed.mcpServers, resolvedPath, channel)
+            : undefined;
 
     if (!servers) {
       channel.appendLine(
-        `[SKC] MCP file at ${resolvedPath} did not contain a 'servers' array; leaving mcp.servers unchanged.`
+        `[SKC] MCP file at ${resolvedPath} did not contain a 'servers' array, a top-level array, or a 'mcpServers' object; leaving mcp.servers unchanged.`
       );
       return undefined;
     }
@@ -288,6 +293,32 @@ async function readMcpFile(
     channel.appendLine(`[SKC] Failed to read MCP file at ${resolvedPath}: ${message}`);
     return undefined;
   }
+}
+
+function convertCursorMcpServersToArray(
+  mcpServers: Record<string, unknown>,
+  sourcePath: string,
+  channel: OutputChannel
+): unknown[] | undefined {
+  const result: unknown[] = [];
+
+  for (const [id, cfg] of Object.entries(mcpServers)) {
+    if (!isRecord(cfg)) {
+      channel.appendLine(
+        `[SKC] MCP file at ${sourcePath} contains non-object mcpServers entry for ${JSON.stringify(id)}; skipping.`
+      );
+      continue;
+    }
+
+    const server: Record<string, unknown> = { ...cfg };
+    if (typeof server.id !== "string") {
+      server.id = id;
+    }
+
+    result.push(server);
+  }
+
+  return result.length > 0 ? result : undefined;
 }
 
 async function readExtensionsFile(
@@ -340,6 +371,11 @@ async function resolvePath(
 ): Promise<string | undefined> {
   if (!configuredPath) {
     return undefined;
+  }
+
+  if (configuredPath === "cursor-global") {
+    const cursorGlobalMcpPath = path.join(os.homedir(), ".cursor", "mcp.json");
+    return (await pathExists(cursorGlobalMcpPath)) ? cursorGlobalMcpPath : undefined;
   }
 
   if (path.isAbsolute(configuredPath)) {
